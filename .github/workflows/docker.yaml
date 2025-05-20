@@ -16,10 +16,15 @@ jobs:
       # 设置 QEMU 以支持 ARM 架构
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64,arm/v7
 
       # 设置 Docker Buildx 以支持多架构构建
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+          install: true
 
 #      # 登录到 Docker Hub
 #      - name: Login to Docker Hub
@@ -46,3 +51,6 @@ jobs:
           push: true
           tags: |
             ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_NAMESPACE }}/flask-info:latest
+            ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_NAMESPACE }}/flask-info:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
