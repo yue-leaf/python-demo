@@ -2,8 +2,10 @@ name: Build and Push Flask App
 
 on:
   push:
-    branches:
-      - main
+#    branches:
+#      - main
+    tags:
+      - 'v*'
 
 jobs:
   build-and-push:
@@ -11,6 +13,9 @@ jobs:
     env:
       TZ: Asia/Shanghai
     steps:
+      - name: Print tag
+        run:
+          echo "Current tag: ${{ github.ref_name }}"
       # 检出代码
       - name: 检出代码
         uses: actions/checkout@v4
@@ -32,5 +37,4 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: |
-            ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_NAMESPACE }}/flask-pod-info:latest
-            ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_NAMESPACE }}/flask-pod-info:${{ github.sha }}
+            ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_NAMESPACE }}/flask-info:latest
