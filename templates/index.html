@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Information</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        .info-box {
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 5px;
+            margin-top: 20px;
+            display: flex; /* 使用 Flexbox 布局 */
+            flex-direction: column; /* 垂直排列 */
+            align-items: center; /* 水平居中 */
+        }
+        .info-item {
+            width: fit-content; /* 宽度自适应内容 */
+            text-align: left; /* 文本左对齐 */
+        }
+        p {
+            font-size: 1.2em;
+            margin: 10px 0;
+        }
+        h1 {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Information</h1>
+    <div class="info-box">
+        <div class="info-item">
+            <p><strong>当前服务数量:</strong> {{ pod_num }}</p>
+            <p><strong>当前服务IP:</strong> {{ pod_ip }}</p>
+        </div>
+    </div>
+</body>
+</html>
