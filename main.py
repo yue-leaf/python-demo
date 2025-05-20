@@ -11,8 +11,8 @@ k8s_client = KubernetesClient(Config.k8s_host, Config.k8s_token)
 
 @app.route('/index', methods=['GET'])
 def index():
-    deployment_name = "edgex-kuiper"
-    namespace = "edgex"
+    deployment_name = Config.deployment_name
+    namespace = Config.k8s_namespace
     ok, deployment = k8s_client.read_namespaced_deployment(deployment_name, namespace)
     if not ok:
         return 'get deployment failed'
