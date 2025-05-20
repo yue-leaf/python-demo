@@ -11,6 +11,16 @@ jobs:
     env:
       TZ: Asia/Shanghai
     steps:
+      - name: Set up Docker
+        uses: docker/setup-docker-action@v4
+        with:
+          daemon-config: |
+            {
+              "debug": true,
+              "features": {
+                "containerd-snapshotter": true
+              }
+            }
       # 检出代码
       - name: 检出代码
         uses: actions/checkout@v4
@@ -18,8 +28,6 @@ jobs:
       # 设置 QEMU 支持多平台
       - name: 设置 QEMU
         uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64,amd64
 
       # 设置 Docker Buildx 使用 docker-container 驱动
       - name: 设置 Docker Buildx
