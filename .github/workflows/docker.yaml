@@ -54,6 +54,7 @@ jobs:
             linux/arm64
             linux/amd64
           push: true
+          load: true
           tags: |
             ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_NAMESPACE }}/flask-info:latest
             ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_NAMESPACE }}/flask-info:${{ github.sha }}
