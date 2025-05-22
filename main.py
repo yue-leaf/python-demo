@@ -18,7 +18,8 @@ def index():
         return 'get deployment failed'
     pod_num = deployment.spec.replicas
     pod_ip = socket.gethostbyname(socket.gethostname())
-    return render_template('index.html', pod_num=pod_num, pod_ip=pod_ip)
+    version = 'v0.0.3'
+    return render_template('index.html', pod_num=pod_num, pod_ip=pod_ip, version=version)
 
 
 if __name__ == '__main__':
