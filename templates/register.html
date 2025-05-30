@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>后台管理</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f3f4f6;
+        }
+
+        .panel {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .form_group {
+            margin-bottom: 1.5rem;
+            position: relative; /* 用于 error_tip 定位 */
+        }
+
+        .form_group label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: #374151;
+        }
+
+        .input {
+            width: 100%;
+            height: 38px; /* 从 30px 增加到 38px 以改善文本对齐 */
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            font-size: 1rem;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 0.5rem; /* 统一内边距 */
+            line-height: 1.5; /* 规范化行高 */
+        }
+
+        .inputText {
+            width: 100%;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            font-size: 1rem;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 0.5rem; /* 统一内边距 */
+            line-height: 1.5; /* 规范化行高 */
+            resize: none;
+        }
+
+        .input::placeholder, .inputText::placeholder {
+            color: #9ca3af;
+            font-size: 1rem;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            opacity: 1;
+        }
+
+        .form_group.line_top {
+            margin-top: 2rem;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 1.5rem;
+            display: flex;
+            justify-content: center; /* 居中按钮 */
+        }
+
+        .confirm {
+            background-color: #2563eb;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.375rem;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            text-align: center; /* 按钮内文本居中 */
+            width: 100%; /* 适应内容宽度 */
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .confirm:hover {
+            background-color: #1d4ed8;
+        }
+
+        .review_title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #1f2937;
+        }
+
+        .error_tip {
+            position: absolute;
+            font-size: 12px;
+            color: #f00;
+            left: 18px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+<div class="panel">
+    <form class="device_register" method="post" action="/register">
+        <h3 class="review_title">设备注册</h3>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form_group">
+            <label for="device_name">设备名称：</label>
+            <input class="input" type="text" id="device_name"
+                   name="device_name"
+                   placeholder="请输入设备名称"
+                   value="{{ device_name if device_name else '' }}"
+                   required>
+        </div>
+        <div class="form_group">
+            <label for="device_no">设备序列号：</label>
+            <input class="input" type="text" id="device_no"
+                   name="device_no"
+                   placeholder="请输入设备序列号"
+                   value="{{ device_no if device_no else '' }}"
+                   required>
+        </div>
+        <div class="form_group">
+            <label for="device_desc">设备描述：</label>
+            <textarea class="inputText" id="device_desc"
+                      name="device_desc"
+                      rows="4"
+                      placeholder="请输入设备描述">{{device_desc if device_desc else ''}}</textarea>
+            {% if errmsg %}
+            <div class="error_tip" style="display: block">{{ errmsg }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form_group line_top">
+            <input type="submit" value="确定" class="confirm">
+        </div>
+    </form>
+</div>
+</body>
+</html>
