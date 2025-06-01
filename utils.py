@@ -17,9 +17,9 @@ def get_os_info():
     """获取操作系统信息"""
     try:
         return {
-            "操作系统名称": platform.system(),
-            "版本": platform.release(),
-            "详细信息": platform.platform()
+            "os_name": platform.system(),
+            "os_version": platform.release(),
+            "os_platform": platform.platform()
         }
     except Exception as e:
         return f"获取操作系统信息失败: {str(e)}"
@@ -37,16 +37,28 @@ def get_local_ip():
         return f"获取 IP 地址失败: {str(e)}"
 
 
-def get_network_interfaces():
-    """获取所有网络接口的 IP 地址"""
+def get_network_interfaces_details():
+    """获取所有网络接口的详细信息"""
     interfaces = {}
     for interface in netifaces.interfaces():
+        if interface.startswith('lo') or interface.startswith('docker') or interface.startswith('veth') or \
+                interface.startswith('flannel') or interface.startswith('cni'):
+            continue
         try:
             addrs = netifaces.ifaddresses(interface)
+            interfaces[interface] = {}
             if netifaces.AF_INET in addrs:  # IPv4
-                for addr in addrs[netifaces.AF_INET]:
-                    interfaces[interface] = addr['addr']
-        except:
+                interfaces[interface]['ipv4'] = [
+                    {'addr': addr['addr'], 'netmask': addr.get('netmask'), 'broadcast': addr.get('broadcast')}
+                    for addr in addrs[netifaces.AF_INET]
+                ]
+            if netifaces.AF_INET6 in addrs:  # IPv6
+                interfaces[interface]['ipv6'] = [
+                    {'addr': addr['addr'], 'netmask': addr.get('netmask')}
+                    for addr in addrs[netifaces.AF_INET6]
+                ]
+        except Exception as e:
+            print(f"Error processing interface {interface}: {e}")
             continue
     return interfaces
 
@@ -57,8 +69,8 @@ def get_cpu_info():
     logical_cores = psutil.cpu_count(logical=True)
     physical_cores = psutil.cpu_count(logical=False)
     return {
-        "CPU 使用率": f"{cpu_percent}%",
-        "逻辑 CPU 核心数": logical_cores,
+        "cpu_percent": f"{cpu_percent}%",
+        "logical_cores": logical_cores,
         "physical_cores": physical_cores
     }
 
@@ -67,10 +79,10 @@ def get_memory_info():
     """获取内存信息"""
     memory = psutil.virtual_memory()
     return {
-        "总内存": f"{memory.total / (1024 ** 3):.2f} GB",
-        "已用内存": f"{memory.used / (1024 ** 3):.2f} GB",
-        "可用内存": f"{memory.available / (1024 ** 3):.2f} GB",
-        "内存使用率": f"{memory.percent}%"
+        "mem_total": f"{memory.total / (1024 ** 3):.2f} GB",
+        "mem_used": f"{memory.used / (1024 ** 3):.2f} GB",
+        "mem_available": f"{memory.available / (1024 ** 3):.2f} GB",
+        "mem_percent": f"{memory.percent}%"
     }
 
 
@@ -82,20 +94,32 @@ def get_disk_info():
         disk_info = {}
         partitions = psutil.disk_partitions()
         for partition in partitions:
+            # 过滤 Kubernetes 临时挂载点
+            mountpoint = partition.mountpoint
+            if 'snap' in mountpoint or '/var/lib/kubelet/pods' in mountpoint:
+                continue
             try:
-                disk = psutil.disk_usage(partition.mountpoint)
+                disk = psutil.disk_usage(mountpoint)
                 total_capacity += disk.total
                 total_used += disk.used
-                disk_info[partition.mountpoint] = {
-                    "总大小": f"{disk.total / (1024 ** 3):.2f} GB",
-                    "已用": f"{disk.used / (1024 ** 3):.2f} GB",
-                    "可用": f"{disk.free / (1024 ** 3):.2f} GB",
-                    "使用率": f"{disk.percent}%"
+                disk_info[mountpoint] = {
+                    "total": f"{disk.total / (1024 ** 3):.2f} GB",
+                    "used": f"{disk.used / (1024 ** 3):.2f} GB",
+                    "free": f"{disk.free / (1024 ** 3):.2f} GB",
+                    "percent": f"{disk.percent}%",
+                    "device": partition.device,
                 }
             except:
                 disk_info[partition.mountpoint] = "无法获取详细信息"
-        total_usage_percent = (total_used / total_capacity) * 100 if total_capacity > 0 else 0
-        return f"{total_capacity / (1024 ** 3):.2f} GB", total_usage_percent, disk_info
+        total_usage_percent =f"{(total_used / total_capacity) * 100 if total_capacity > 0 else 0:.2f}%"
+
+        return {
+            "total_capacity": f"{total_capacity / (1024 ** 3):.2f} GB",
+            "total_used": f"{total_used / (1024 ** 3):.2f} GB",
+            "total_free": f"{(total_capacity - total_used) / (1024 ** 3):.2f} GB",
+            "total_usage_percent": total_usage_percent,
+            "details": disk_info
+        }
     except Exception as e:
         return 0, f"获取磁盘信息失败: {str(e)}"
 
@@ -115,8 +139,15 @@ def main():
     print("\n1. 本机 IP 地址:")
     print(f"默认 IP: {get_local_ip()}")
     print("所有网络接口 IP:")
-    for iface, ip in get_network_interfaces().items():
-        print(f"  {iface}: {ip}")
+    interfaces = get_network_interfaces_details()
+    for name, details in interfaces.items():
+        print(f"接口: {name}")
+        if 'ipv4' in details:
+            for ipv4 in details['ipv4']:
+                print(f"  IPv4: {ipv4['addr']}, 掩码: {ipv4['netmask']}, 广播: {ipv4.get('broadcast')}")
+        if 'ipv6' in details:
+            for ipv6 in details['ipv6']:
+                print(f"  IPv6: {ipv6['addr']}, 掩码: {ipv6['netmask']}")
 
     # 获取 CPU 信息
     print("\n2. CPU 信息:")
@@ -129,10 +160,10 @@ def main():
         print(f"  {key}: {value}")
 
     # 获取磁盘信息
-    total_capacity, total_usage_percent, disk_info = get_disk_info()
-    print(f"磁盘总容量: {total_capacity},总使用率: {total_usage_percent:.2f}%)")
+    disk_info = get_disk_info()
+    print(f"磁盘总容量: {disk_info['total_capacity']},总使用率: {disk_info['total_usage_percent']})")
     print("磁盘分区详细信息:")
-    for mountpoint, info in disk_info.items():
+    for mountpoint, info in disk_info['details'].items():
         print(f"  挂载点: {mountpoint}")
         if isinstance(info, dict):
             for key, value in info.items():

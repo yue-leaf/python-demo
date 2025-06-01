@@ -1,66 +1,67 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<title>后台管理</title>
-	<link rel="stylesheet" type="text/css" href="../static/css/reset.css">
-	<link rel="stylesheet" type="text/css" href="../static/css/main.css">
-	<script type="text/javascript" src="../static/js/jquery-1.12.4.min.js"></script>
+    <meta charset="UTF-8">
+    <title>后台管理</title>
+    <link rel="stylesheet" type="text/css" href="../static/css/reset.css">
+    <link rel="stylesheet" type="text/css" href="../static/css/main.css">
+    <script type="text/javascript" src="../static/js/jquery-1.12.4.min.js"></script>
     <script type="text/javascript" src="../static/js/main.js"></script>
 </head>
 <body>
-	<div class="header">
-		<a href="#" class="logo fl"><img src="../static/images/logo.png" alt="logo"></a>
-		<a href="javascript:;" onclick="logout()" class="logout fr">退 出</a>
-	</div>
+<div class="header">
+    <a href="#" class="logo fl"><img src="../static/images/logo.png" alt="logo"></a>
+    <a href="javascript:;" onclick="logout()" class="logout fr">退 出</a>
+</div>
 
-	<div class="side_bar">
-		<div class="user_info">
-			<img src="../static/images/person.png" alt="张大山">
-			<p>欢迎你 <em>{{ username }}</em></p>
-		</div>
+<div class="side_bar">
+    <div class="user_info">
+        <img src="../static/images/person.png" alt="张大山">
+        <p>欢迎你 <em>{{ username }}</em></p>
+    </div>
 
-		<div class="menu_con">
-			<div class="first_menu active"><a href="#" class="icon02" target="main_frame">主机信息</a></div>
+    <div class="menu_con">
+         <div class="first_menu active">
+            <a href="{{url_for('device_manage')}}" class="icon02" target="main_frame">设备管理</a>
+        </div>
+        <div class="first_menu">
+            <a href="{{url_for('device_info')}}" class="icon02" target="main_frame">主机信息
+            </a>
+        </div>
 
-			<div class="first_menu"><a href="#" class="icon02">管理</a></div>
-		</div>
-	</div>
+    </div>
+</div>
 
-	<div class="main_body" id="main_body">
-		<iframe src="{{ url_for('host_info') }}" frameborder="0" id="main_frame" name="main_frame" frameborder="0" scrolling="auto"></iframe>
-	</div>
+<div class="main_body" id="main_body">
+    <iframe src="{{ url_for('device_manage') }}" frameborder="0" id="main_frame" name="main_frame" frameborder="0"
+            scrolling="auto">
+    </iframe>
+</div>
 
-	<script>
-		$(function(){
-			$('.first_menu').click(function(){
-				$(this).addClass('active').siblings('.first_menu').removeClass('active');
-				$(this).next().slideDown().siblings('.sub_menu').slideUp();
-			})
-			var frame_w = $('#main_body').outerWidth();
-			var frame_h = $('#main_body').outerHeight();
-			$('#main_frame').css({'width':frame_w,'height':frame_h});
+<script>
+    $(function () {
+        $('.first_menu').click(function () {
+            $(this).addClass('active').siblings('.first_menu').removeClass('active');
+            $(this).next().slideDown().siblings('.sub_menu').slideUp();
+        })
+        var frame_w = $('#main_body').outerWidth();
+        var frame_h = $('#main_body').outerHeight();
+        $('#main_frame').css({'width': frame_w, 'height': frame_h});
 
+        // 设置 iframe 大小
+        function resizeIframe() {
+            var frame_w = $('#main_body').width(); // 使用 width() 避免边距影响
+            var frame_h = $(window).height() - $('#main_body').offset().top;
+            $('#main_frame').css({
+                'width': frame_w + 'px',
+                'height': frame_h + 'px'
+            });
+        }
 
-			window.onload = function() {
-				parent.adjustIframeSize(); // 通知父页面调整高度
-			};
+        $(window).resize(resizeIframe);
+    })
 
-			 // 设置 iframe 大小
-            function resizeIframe() {
-                var frame_w = $('#main_body').width(); // 使用 width() 避免边距影响
-                var frame_h = $(window).height() - $('#main_body').offset().top;
-                $('#main_frame').css({
-                    'width': frame_w + 'px',
-                    'height': frame_h + 'px'
-                });
-            }
-
-			$(window).resize(resizeIframe);
-		})
-
-
-	</script>
+</script>
 
 </body>
 </html>

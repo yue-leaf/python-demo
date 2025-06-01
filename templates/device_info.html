@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>本机信息展示</title>
+<!--    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>-->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="container mx-auto p-4">
+        <h1 class="text-3xl font-bold text-center mb-6">本机信息</h1>
+
+        <!-- 主机信息 -->
+        <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+            <h2 class="text-2xl font-semibold mb-4">基本信息</h2>
+            <p><strong>操作系统:</strong> {{os_info.os_name}} {{os_info.os_version}} ({{os_info.os_platform}})</p>
+            <p><strong>主机名:</strong>{{hostname}}</p>
+            <p><strong>网络接口</strong></p>
+            <ul class="list-disc pl-6">
+                {% for interface, info_dict in network_interfaces.items() %}
+                    <li>{{ interface }}
+                        <ul class="list-disc pl-6">
+                            {% for key, info_list in info_dict.items() %}
+                                <li> {{ key }}
+                                    {% for v in info_list %}
+                                        <ul class="list-disc pl-6">
+                                        <li>
+                                            <strong>IP 地址:</strong> {{ v.addr }}
+                                            <strong>掩码:</strong> {{ v.netmask }}
+                                            <strong>广播地址:</strong> {{ v.broadcast }}
+                                        </li>
+                                        </ul>
+                                    {% endfor %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- CPU 和内存信息 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-2xl font-semibold mb-4">CPU 信息</h2>
+                <p><strong>使用率:</strong> {{cpu_info.cpu_percent}}</p>
+                <p><strong>物理核心数:</strong> {{cpu_info.physical_cores}}</p>
+                <p><strong>逻辑核心数:</strong> {{cpu_info.logical_cores}}</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-2xl font-semibold mb-4">内存信息</h2>
+                <p><strong>总内存:</strong> {{mem_info.mem_total}}</p>
+                <p><strong>已用内存:</strong> {{mem_info.mem_used}} </p>
+                <p><strong>可用内存:</strong> {{mem_info.mem_available}} </p>
+                <p><strong>使用率:</strong> {{mem_info.mem_percent}}</p>
+            </div>
+        </div>
+
+        <!-- 磁盘信息 -->
+        <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+            <h2 class="text-2xl font-semibold mb-4">磁盘信息</h2>
+            <p><strong>总容量:</strong> {{disk_info.total_capacity}}</p>
+            <p><strong>总使用率:</strong> {{disk_info.total_usage_percent}}</p>
+            <h3 class="text-xl font-semibold mt-4">分区详情</h3>
+            <ul class="list-disc pl-6">
+                {% for partition, info_dict in disk_info.details.items() %}
+                    <li><strong>{{info_dict.device}}:</strong> 总大小: 476.94 GB, 已用: 200.50 GB, 可用: 276.44 GB, 使用率: 42
+                        .0%</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- 图表 -->
+<!--        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">-->
+<!--            &lt;!&ndash; 柱状图：CPU、内存、磁盘总使用率 &ndash;&gt;-->
+<!--            <div class="bg-white p-6 rounded-lg shadow-md">-->
+<!--                <h2 class="text-2xl font-semibold mb-4">使用率概览</h2>-->
+<!--                <canvas id="usageChart"></canvas>-->
+<!--            </div>-->
+<!--            &lt;!&ndash; 饼图：磁盘分区使用率 &ndash;&gt;-->
+<!--            <div class="bg-white p-6 rounded-lg shadow-md">-->
+<!--                <h2 class="text-2xl font-semibold mb-4">磁盘分区使用率</h2>-->
+<!--                <canvas id="diskPieChart"></canvas>-->
+<!--            </div>-->
+<!--        </div>-->
+    </div>
+
+    <script>
+        // 柱状图：CPU、内存、磁盘总使用率
+        // const usageChart = new Chart(document.getElementById('usageChart'), {
+        //     type: 'bar',
+        //     data: {
+        //         labels: ['CPU 使用率', '内存使用率', '磁盘总使用率'],
+        //         datasets: [{
+        //             label: '使用率 (%)',
+        //             data: [23.5, 45.3, 48.75],
+        //             backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56'],
+        //             borderColor: ['#FF6384', '#36A2EB', '#FFCE56'],
+        //             borderWidth: 1
+        //         }]
+        //     },
+        //     options: {
+        //         scales: {
+        //             y: {
+        //                 beginAtZero: true,
+        //                 max: 100,
+        //                 title: {
+        //                     display: true,
+        //                     text: '使用率 (%)'
+        //                 }
+        //             }
+        //         },
+        //         plugins: {
+        //             legend: {
+        //                 display: false
+        //             }
+        //         }
+        //     }
+        // });
+
+        // 饼图：磁盘分区使用率
+        // const diskPieChart = new Chart(document.getElementById('diskPieChart'), {
+        //     type: 'pie',
+        //     data: {
+        //         labels: ['/dev/sda1', '/dev/sdb1', '其他'],
+        //         datasets: [{
+        //             label: '磁盘使用率',
+        //             data: [42.0, 53.7, 0], // /dev/sdc1 无数据，设为 0
+        //             backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56'],
+        //             borderColor: ['#FFFFFF', '#FFFFFF', '#FFFFFF'],
+        //             borderWidth: 1
+        //         }]
+        //     },
+        //     options: {
+        //         plugins: {
+        //             legend: {
+        //                 position: 'bottom'
+        //             }
+        //         }
+        //     }
+        // });
+    </script>
+</body>
+</html>

@@ -10,5 +10,6 @@ class Config:
     edge_server_host = 'http://10.10.0.234:6006'
     timeout = 15
     success_code = '0000'
+    fail_code = '0001'
 
     device_register_url = '/genbu/edge/device/register'

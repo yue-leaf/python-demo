@@ -8,6 +8,8 @@ from config import Config
 from k8s_tool import KubernetesClient
 from proxy import http_client
 from tools import check_register
+from utils import get_os_info, get_hostname, get_network_interfaces_details, get_cpu_info, get_memory_info, \
+    get_disk_info
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = "iECgbYWReMNxkRprrzMo5KAQYnb2UeZ3bwvReTSt+VSESW0OB8zbglT+6rEcDW9X"
@@ -103,10 +105,41 @@ def register():
     return redirect(url_for('index'))
 
 
-@app.route('/host_info', methods=['GET'])
-def host_info():
-    host_ip = socket.gethostbyname(socket.gethostname())
-    return render_template('index.html')
+@app.route('/device_info', methods=['GET'])
+def device_info():
+    hostname = get_hostname()
+    os_info = get_os_info()
+    network_interfaces = get_network_interfaces_details()
+    cpu_info = get_cpu_info()
+    mem_info = get_memory_info()
+    disk_info = get_disk_info()
+
+    return render_template('device_info.html', hostname=hostname, os_info=os_info,
+                           network_interfaces=network_interfaces, cpu_info=cpu_info,
+                           mem_info=mem_info, disk_info=disk_info)
+
+
+@app.route('/device_manage', methods=['GET'])
+def device_manage():
+    devices = [
+        {
+            'device_no': '1234567890',
+            'device_name': 'Device 1',
+            'device_desc': 'This is the first device',
+            'registered_status': 1,
+            'initialized_status': 0,
+            'registered_time': '2023-05-01 10:00:00',
+        }
+    ]
+    return render_template('device_manage.html', devices=devices)
+
+
+@app.route('/init_device', methods=['GET'])
+def init_device():
+    try:
+        return jsonify({'code': Config.success_code, 'msg': 'Device initialized successfully'})
+    except Exception as e:
+        return jsonify({'code': Config.fail_code, 'msg': str(e)})
 
 
 if __name__ == '__main__':
