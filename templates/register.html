@@ -131,6 +131,14 @@
                    required>
         </div>
         <div class="form_group">
+            <label for="auth">注册认证信息：</label>
+            <input class="input" type="text" id="auth"
+                   name="auth"
+                   placeholder="请输入设备注册认证信息"
+                   value="{{ auth if auth else '' }}"
+                   required>
+        </div>
+        <div class="form_group">
             <label for="device_desc">设备描述：</label>
             <textarea class="inputText" id="device_desc"
                       name="device_desc"

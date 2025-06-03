@@ -124,6 +124,25 @@ def get_disk_info():
         return 0, f"获取磁盘信息失败: {str(e)}"
 
 
+def get_cpu_mem_disk():
+    physical_cores = psutil.cpu_count(logical=False)
+
+    memory = psutil.virtual_memory()
+    mem_total = f"{memory.total / (1024 ** 3):.2f} GB"
+
+    total_capacity = 0
+    partitions = psutil.disk_partitions()
+    for partition in partitions:
+        # 过滤 Kubernetes 临时挂载点
+        mountpoint = partition.mountpoint
+        if 'snap' in mountpoint or '/var/lib/kubelet/pods' in mountpoint:
+            continue
+        disk = psutil.disk_usage(mountpoint)
+        total_capacity += disk.total
+    total_capacity = f"{total_capacity / (1024 ** 3):.2f} GB"
+    return physical_cores, mem_total, total_capacity
+
+
 def main():
     print("=== 本机信息 ===")
     # 操作系统信息

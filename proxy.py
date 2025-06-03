@@ -9,7 +9,7 @@ class HttpClient:
     def __init__(self):
         self.host = Config.edge_server_host
         self.timeout = Config.timeout
-        self.success_code = Config.success_code
+        self.success_code = 20000
 
     def get(self, uri, headers=None, params=None):
         return self._run('get', self.host + uri, headers, params)
@@ -40,8 +40,8 @@ class HttpClient:
                 return response.text, False
             result_data = response.json()
             if result_data['code'] == self.success_code:
-                return result_data.get('data'), True
-            return result_data.get('msg'), False
+                return result_data.get('response'), True
+            return result_data.get('message'), False
 
 
 http_client = HttpClient()

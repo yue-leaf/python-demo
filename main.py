@@ -1,4 +1,4 @@
-import socket
+import sqlite3
 from flask import session, jsonify
 from flask import Flask, render_template, request, redirect, url_for, make_response
 from flask_wtf import CSRFProtect
@@ -9,14 +9,67 @@ from k8s_tool import KubernetesClient
 from proxy import http_client
 from tools import check_register
 from utils import get_os_info, get_hostname, get_network_interfaces_details, get_cpu_info, get_memory_info, \
-    get_disk_info
+    get_disk_info, get_cpu_mem_disk
+from threading import local
 
+thread_local = local()
 app = Flask(__name__)
 app.config['SECRET_KEY'] = "iECgbYWReMNxkRprrzMo5KAQYnb2UeZ3bwvReTSt+VSESW0OB8zbglT+6rEcDW9X"
 
 CSRFProtect(app)
 
 k8s_client = KubernetesClient(Config.k8s_host, Config.k8s_token)
+
+
+def get_db_connection():
+    if not hasattr(thread_local, 'connection'):
+        thread_local.connection = sqlite3.connect('example.db')
+        # 创建表
+        cursor = thread_local.connection.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS device (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                device_name TEXT NOT NULL,
+                device_no TEXT,
+                registered_status INTEGER,
+                initialized_status INTEGER,
+                registered_time TEXT
+            )
+        ''')
+        thread_local.connection.commit()
+    return thread_local.connection
+
+
+def get_cache_device():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM device")
+    row = cursor.fetchone()
+    if row:
+        return {
+            'device_name': row[1],
+            'device_no': row[2],
+            'registered_status': row[3],
+            'initialized_status': row[4],
+            'registered_time': row[5]
+        }
+    return None
+
+
+def insert_device(device_name, device_no, registered_time):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO device (device_name, devcie_no, registered_status,initialized_status,registered_time "
+        ") VALUES (?, ?, ?,?, ?)",
+        (device_name, device_no, 1, 0, registered_time))
+    conn.commit()
+
+
+def close_db_connection():
+    if hasattr(thread_local, 'connection'):
+        thread_local.connection.close()
+        del thread_local.connection
 
 
 @app.before_request
@@ -45,9 +98,13 @@ def index():
     # pod_ip = socket.gethostbyname(socket.gethostname())
     # version = 'v0.0.3'
     # return render_template('index.html', pod_num=pod_num, pod_ip=pod_ip, version=version)
-
-    # 检查是否已经注册
-    if check_register():
+    try:
+        device = get_cache_device()
+    except Exception as e:
+        return jsonify({'code': Config.fail_code, 'msg': str(e)})
+    finally:
+        close_db_connection()
+    if device:
         return render_template('home.html')
     else:
         return redirect(url_for('register'))
@@ -87,21 +144,24 @@ def logout():
 def register():
     if request.method == 'GET':
         return render_template('register.html')
-    username = request.form.get('username')
-    password = request.form.get('password')
+    auth = request.form.get('auth')
     device_no = request.form.get('device_no')
     device_name = request.form.get('device_name')
     device_desc = request.form.get('device_desc')
+    cpu, mem, disk = get_cpu_mem_disk()
     data = {
-        'username': username,
-        'password': password,
+        'auth': auth,
         'device_no': device_no,
         'device_name': device_name,
-        'device_desc': device_desc
+        'device_desc': device_desc,
+        'cpu': cpu,
+        'memory': mem,
+        'disk': disk
     }
-    resp_data, ok = http_client.post('/api/device/register', data=data)
-    # if not ok:
-    #     return render_template('register.html', errmsg=resp_data, **data)
+    resp_data, ok = http_client.post('/genbu/edge/device/register', data=data)
+    if not ok:
+        return render_template('register.html', errmsg=resp_data, **data)
+    insert_device(device_name, device_no, resp_data['register_time'])
     return redirect(url_for('index'))
 
 
