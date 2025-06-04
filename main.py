@@ -7,7 +7,7 @@ from flask_wtf.csrf import CSRFError
 from config import Config
 from k8s_tool import KubernetesClient
 from proxy import http_client
-from tools import check_register
+from tools import init_k3s, apply_kubernetes_yaml, get_cluster_info
 from utils import get_os_info, get_hostname, get_network_interfaces_details, get_cpu_info, get_memory_info, \
     get_disk_info, get_cpu_mem_disk
 from threading import local
@@ -33,7 +33,9 @@ def get_db_connection():
                 device_no TEXT,
                 registered_status INTEGER,
                 initialized_status INTEGER,
-                registered_time TEXT
+                registered_time TEXT,
+                device_desc TEXT,
+                auth TEXT
             )
         ''')
         thread_local.connection.commit()
@@ -51,18 +53,28 @@ def get_cache_device():
             'device_no': row[2],
             'registered_status': row[3],
             'initialized_status': row[4],
-            'registered_time': row[5]
+            'registered_time': row[5],
+            'device_desc': row[6],
+            'auth': row[7]
         }
     return None
 
 
-def insert_device(device_name, device_no, registered_time):
+def insert_device(device_name, device_no, registered_time, device_desc, auth):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO device (device_name, devcie_no, registered_status,initialized_status,registered_time "
-        ") VALUES (?, ?, ?,?, ?)",
-        (device_name, device_no, 1, 0, registered_time))
+        "INSERT INTO device (device_name, device_no, registered_status,initialized_status,registered_time, "
+        "device_desc, auth) "
+        " VALUES (?, ?, ?,?, ?,?,?)",
+        (device_name, device_no, 1, 0, registered_time, device_desc, auth))
+    conn.commit()
+
+
+def update_device(device_no):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE device SET initialized_status = 1 WHERE device_no = ?", (device_no,))
     conn.commit()
 
 
@@ -161,7 +173,7 @@ def register():
     resp_data, ok = http_client.post('/genbu/edge/device/register', data=data)
     if not ok:
         return render_template('register.html', errmsg=resp_data, **data)
-    insert_device(device_name, device_no, resp_data['register_time'])
+    insert_device(device_name, device_no, resp_data['register_time'], device_desc, auth)
     return redirect(url_for('index'))
 
 
@@ -181,14 +193,17 @@ def device_info():
 
 @app.route('/device_manage', methods=['GET'])
 def device_manage():
+    device = get_cache_device()
+    if not device:
+        return redirect(url_for('register'))
     devices = [
         {
-            'device_no': '1234567890',
-            'device_name': 'Device 1',
-            'device_desc': 'This is the first device',
-            'registered_status': 1,
-            'initialized_status': 0,
-            'registered_time': '2023-05-01 10:00:00',
+            'device_no': device['device_no'],
+            'device_name': device['device_name'],
+            'device_desc': device['device_desc'],
+            'registered_status': device['registered_status'],
+            'initialized_status': device['initialized_status'],
+            'registered_time': device['registered_time'],
         }
     ]
     return render_template('device_manage.html', devices=devices)
@@ -197,6 +212,34 @@ def device_manage():
 @app.route('/init_device', methods=['GET'])
 def init_device():
     try:
+        msg, ok = init_k3s()
+        if not ok:
+            return jsonify({'code': Config.fail_code, 'msg': msg})
+        device = get_cache_device()
+        if not device:
+            return jsonify({'code': Config.fail_code, 'msg': 'Device not registered'})
+        cluster_info = get_cluster_info()
+        if not cluster_info:
+            return jsonify({'code': Config.fail_code, 'msg': 'Failed to get cluster info'})
+        data = {
+            'auth': device['auth'],
+            'device_no': device['device_no'],
+            'name': cluster_info['cluster_name'],
+            'age': cluster_info['age'],
+            'num': cluster_info['node_count'],
+            'version': cluster_info['version']
+        }
+        response, ok = http_client.post('/genbu/edge/device/init_script', data=data)
+        if not ok:
+            return jsonify({'code': Config.fail_code, 'msg': "Failed to get init script"})
+        init_script = response['init_script']
+        ok = apply_kubernetes_yaml(init_script)
+        if not ok:
+            return jsonify({'code': Config.fail_code, 'msg': 'Failed to apply Kubernetes YAML'})
+        response, ok = http_client.post('/genbu/edge/device/init_success', data=data)
+        if not ok:
+            return jsonify({'code': Config.fail_code, 'msg': response})
+        update_device(device['device_no'])
         return jsonify({'code': Config.success_code, 'msg': 'Device initialized successfully'})
     except Exception as e:
         return jsonify({'code': Config.fail_code, 'msg': str(e)})
