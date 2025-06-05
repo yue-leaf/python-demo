@@ -17,6 +17,9 @@ class HttpClient:
     def post(self, uri, headers=None, data=None):
         return self._run('post_json', self.host + uri, headers=headers, params=None, data=data)
 
+    def delete(self, uri, headers=None, data=None):
+        return self._run('delete_json', self.host + uri, headers=headers, params=None, data=data)
+
     def _run(self, method, url, headers=None, params=None, data=None):
         try:
             print(f'请求URL:{url}')
@@ -29,6 +32,8 @@ class HttpClient:
                 response = requests.post(url, data=data, headers=headers, timeout=self.timeout)
             elif method == 'post_json':
                 response = requests.post(url, json=data, headers=headers, timeout=self.timeout)
+            elif method == 'delete_json':
+                response = requests.delete(url, json=data, headers=headers, timeout=self.timeout)
             else:
                 return 'method not support', False
         except Exception as e:

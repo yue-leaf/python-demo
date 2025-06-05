@@ -44,6 +44,19 @@
             cursor: not-allowed;
         }
 
+        .delete-btn {
+            padding: 5px 10px;
+            background-color: #e05329;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-left: 20px;
+        }
+
+        .delete-btn:hover {
+            background-color: #e05329;
+        }
+
         /* 加载框样式 */
         .loading-overlay {
             display: none;
@@ -87,43 +100,69 @@
                 transform: rotate(360deg);
             }
         }
+        dialog {
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        .dialog-buttons {
+            margin-top: 10px;
+            text-align: right;
+        }
+        .delete-confirm{
+            background-color:  #4CAF50;
+            margin-left: 20px;
+            color: white;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
-<h1>设备状态</h1>
-<table>
-    <thead>
-    <tr>
-        <th>设备名称</th>
-        <th>设备序列号</th>
-        <th>注册状态</th>
-        <th>初始化状态</th>
-        <th>操作</th>
-    </tr>
-    </thead>
-    <tbody>
-    {% for device in devices %}
-    <tr>
-        <td>{{ device.device_name }}</td>
-        <td>{{ device.device_no }}</td>
-        <td>{{ '已注册' if device.registered_status else '未注册' }}</td>
-        <td>{{ '已初始化' if device.initialized_status else '未初始化' }}</td>
-        <td>
-            {% if device.registered_status and not device.initialized_status %}
-            <button type="submit" class="initialize-btn">初始化</button>
-            {% else %}
-            <button class="initialize-btn" disabled>已初始化</button>
-            {% endif %}
-        </td>
-    </tr>
-    {% endfor %}
-    </tbody>
-</table>
-<div id="loadingOverlay" class="loading-overlay">
-    <div class="loading-spinner"></div>
-    <div class="loading-text">Loading...</div>
-</div>
+    <h1>设备状态</h1>
+    <table>
+        <thead>
+        <tr>
+            <th>设备名称</th>
+            <th>设备序列号</th>
+            <th>注册状态</th>
+            <th>初始化状态</th>
+            <th>操作</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for device in devices %}
+        <tr>
+            <td>{{ device.device_name }}</td>
+            <td>{{ device.device_no }}</td>
+            <td>{{ '已注册' if device.registered_status else '未注册' }}</td>
+            <td>{{ '已初始化' if device.initialized_status else '未初始化' }}</td>
+            <td>
+                {% if device.registered_status and not device.initialized_status %}
+                <button type="submit" class="initialize-btn">初始化</button>
+                {% else %}
+                <button class="initialize-btn" type="submit">重新初始化</button>
+                {% endif %}
+                <button type="submit" class="delete-btn">删除</button>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading...</div>
+    </div>
+
+    <dialog id="confirmDialog">
+        <p id="dialogMessage"></p>
+        <div class="dialog-buttons">
+            <button onclick="cancelDelete()">Cancel</button>
+            <button type="submit" class="delete-confirm">Confirm</button>
+        </div>
+    </dialog>
 <script>
+    var csrf_token = "{{ csrf_token() }}";
     function showLoading() {
         document.getElementById('loadingOverlay').style.display = 'flex';
     }
@@ -132,12 +171,18 @@
         document.getElementById('loadingOverlay').style.display = 'none';
     }
 
+    function showDialog() {
+        const dialog = document.getElementById('confirmDialog');
+        const message = document.getElementById('dialogMessage');
+        message.textContent = `Are you sure you want to delete ?`;
+        dialog.showModal(); // 显示对话框
+    }
+    function cancelDelete() {
+        document.getElementById('confirmDialog').close(); // 关闭对话框
+    }
+
     $(function () {
         $('.initialize-btn').click(function () {
-            var deviceName = $(this).closest('tr').find('td:first').text();
-            var deviceNo = $(this).closest('tr').find('td:nth-child(2)').text();
-            var deviceStatus = $(this).closest('tr').find('td:nth-child(3)').text();
-            console.log(deviceName, deviceNo, deviceStatus)
             showLoading();
             $.get('/init_device', function (resp) {
                 if (resp.code === '0000') {
@@ -149,6 +194,40 @@
             }).fail(function (resp) {
                 hideLoading();
                 alert(resp.responseText);
+            })
+        })
+
+        $('.delete-btn').click(function () {
+            showDialog()
+            var deviceNo = $(this).closest('tr').find('td:nth-child(2)').text();
+            $('#confirmDialog').data('deviceNo', deviceNo);
+        })
+
+        $('.delete-confirm').click(function () {
+            cancelDelete()
+            const deviceNo = $('#confirmDialog').data('deviceNo');
+            showLoading();
+            $.ajax({
+                url: "/delete_device",
+                type: "post",
+                contentType: "application/json",
+                // 在 header 中添加 csrf_token 的随机值
+                headers: {
+                    "X-CSRFToken": csrf_token
+                },
+                data: JSON.stringify({device_no: deviceNo}),
+                success: function (resp) {
+                    if (resp.code === '0000') {
+                        location.reload();
+                    } else {
+                        alert(resp.msg)
+                    }
+                    hideLoading();
+                },
+                error: function (err) {
+                    hideLoading();
+                    alert(err.responseText)
+                }
             })
         })
     })

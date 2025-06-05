@@ -17,6 +17,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = "iECgbYWReMNxkRprrzMo5KAQYnb2UeZ3bwvReTSt+VSESW0OB8zbglT+6rEcDW9X"
 
 CSRFProtect(app)
+app.config['WTF_CSRF_HEADERS'] = ['X-CSRFToken']
 
 k8s_client = KubernetesClient(Config.k8s_host, Config.k8s_token)
 
@@ -75,6 +76,13 @@ def update_device(device_no):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("UPDATE device SET initialized_status = 1 WHERE device_no = ?", (device_no,))
+    conn.commit()
+
+
+def del_device(device_no):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM device WHERE device_no =?", (device_no,))
     conn.commit()
 
 
@@ -173,7 +181,12 @@ def register():
     resp_data, ok = http_client.post('/genbu/edge/device/register', data=data)
     if not ok:
         return render_template('register.html', errmsg=resp_data, **data)
-    insert_device(device_name, device_no, resp_data['register_time'], device_desc, auth)
+    try:
+        insert_device(device_name, device_no, resp_data['register_time'], device_desc, auth)
+    except Exception as e:
+        return render_template('register.html', errmsg=str(e), **data)
+    finally:
+        close_db_connection()
     return redirect(url_for('index'))
 
 
@@ -239,10 +252,29 @@ def init_device():
         response, ok = http_client.post('/genbu/edge/device/init_success', data=data)
         if not ok:
             return jsonify({'code': Config.fail_code, 'msg': response})
-        update_device(device['device_no'])
+        try:
+            update_device(device['device_no'])
+        except Exception as e:
+            return jsonify({'code': Config.fail_code, 'msg': str(e)})
+        finally:
+            close_db_connection()
         return jsonify({'code': Config.success_code, 'msg': 'Device initialized successfully'})
     except Exception as e:
         return jsonify({'code': Config.fail_code, 'msg': str(e)})
+
+
+@app.route('/delete_device', methods=['POST'])
+def delete_device():
+    data = request.get_json()
+    device_no = data.get('device_no')
+    try:
+        response, ok = http_client.delete('/genbu/edge/device/delete', data={'device_no': device_no})
+        if not ok:
+            return jsonify({'code': Config.fail_code, 'msg': response})
+        del_device(device_no)
+    except Exception as e:
+        return jsonify({'code': Config.fail_code, 'msg': str(e)})
+    return jsonify({'code': Config.success_code, 'msg': 'Device deleted successfully'})
 
 
 if __name__ == '__main__':
