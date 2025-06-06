@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import shlex
@@ -189,6 +190,25 @@ def get_cluster_info():
         return None
 
 
+def get_k8s_token():
+    try:
+        # 运行 kubectl 命令获取 token
+        command = """kubectl get secret -n snb-system snb-admin-token -o jsonpath='{.data.token}'"""
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"Error getting token: {result.stderr}")
+            return result.stderr, False
+        token = result.stdout.strip()
+        if not token:
+            print("Token not found.")
+            return None, False
+        return base64.b64decode(token.encode('utf-8')).decode('utf-8'), True
+
+    except Exception as e:
+        print(f"Error executing kubectl command: {e}")
+        return None, False
+
+
 if __name__ == '__main__':
     # init_k3s()
     K8S_YAML = """
@@ -198,4 +218,6 @@ metadata:
   name: huwei-system
 """
     # apply_kubernetes_yaml(K8S_YAML)
-    get_cluster_info()
+    # get_cluster_info()
+    token, ok = get_k8s_token()
+    print(token)

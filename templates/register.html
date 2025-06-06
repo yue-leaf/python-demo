@@ -127,15 +127,24 @@
             <input class="input" type="text" id="device_no"
                    name="device_no"
                    placeholder="请输入设备序列号"
+                   disabled
                    value="{{ device_no if device_no else '' }}"
                    required>
         </div>
         <div class="form_group">
-            <label for="auth">注册认证信息：</label>
-            <input class="input" type="text" id="auth"
-                   name="auth"
-                   placeholder="请输入设备注册认证信息"
-                   value="{{ auth if auth else '' }}"
+            <label for="ak">AccessKey：</label>
+            <input class="input" type="text" id="ak"
+                   name="ak"
+                   placeholder="请输入AccessKey"
+                   value="{{ ak if ak else '' }}"
+                   required>
+        </div>
+        <div class="form_group">
+            <label for="sk">AccessKey：</label>
+            <input class="input" type="text" id="sk"
+                   name="sk"
+                   placeholder="请输入SecretKey"
+                   value="{{ sk if sk else '' }}"
                    required>
         </div>
         <div class="form_group">
