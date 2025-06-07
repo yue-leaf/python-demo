@@ -125,7 +125,7 @@ def index():
     finally:
         close_db_connection()
     if device:
-        return render_template('home.html')
+        return render_template('home.html', username=session.get('username'))
     else:
         return redirect(url_for('register'))
 
