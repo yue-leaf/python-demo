@@ -209,6 +209,23 @@ def get_k8s_token():
         return None, False
 
 
+def get_k8s_svc():
+    try:
+        command = "kubectl get svc kubernetes -n default -o jsonpath='{.spec.clusterIP}'"
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"Error getting ip: {result.stderr}")
+            return result.stderr, False
+        ip = result.stdout.strip()
+        if not ip:
+            print("Cluster ip not found.")
+            return None, False
+        return f'https://{ip}:443', True
+    except Exception as e:
+        print(f"Error executing kubectl command: {e}")
+        return None, False
+
+
 if __name__ == '__main__':
     # init_k3s()
     K8S_YAML = """
@@ -221,3 +238,4 @@ metadata:
     # get_cluster_info()
     token, ok = get_k8s_token()
     print(token)
+    print(get_k8s_svc())

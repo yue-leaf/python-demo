@@ -7,9 +7,9 @@ from flask_wtf.csrf import CSRFError
 from config import Config
 from k8s_tool import KubernetesClient
 from proxy import http_client
-from tools import init_k3s, apply_kubernetes_yaml, get_cluster_info, get_k8s_token
+from tools import init_k3s, apply_kubernetes_yaml, get_cluster_info, get_k8s_token, get_k8s_svc
 from utils import get_os_info, get_hostname, get_network_interfaces_details, get_cpu_info, get_memory_info, \
-    get_disk_info, get_cpu_mem_disk
+    get_disk_info, get_cpu_mem_disk, get_machine_id
 from threading import local
 
 thread_local = local()
@@ -162,7 +162,7 @@ def logout():
 
 @app.route('/register', methods=['POST', 'GET'])
 def register():
-    device_no = 'SNB20250606163000001'
+    device_no = get_machine_id()
     if request.method == 'GET':
         return render_template('register.html', device_no=device_no)
     ak = request.form.get('ak')
@@ -170,6 +170,7 @@ def register():
     device_name = request.form.get('device_name')
     device_desc = request.form.get('device_desc')
     cpu, mem, disk = get_cpu_mem_disk()
+    network_interfaces = get_network_interfaces_details()
     data = {
         'ak': ak,
         'sk': sk,
@@ -178,7 +179,8 @@ def register():
         'device_desc': device_desc,
         'cpu': cpu,
         'memory': mem,
-        'disk': disk
+        'disk': disk,
+        'network_interfaces': network_interfaces
     }
     resp_data, ok = http_client.post('/genbu/edge/device/register', data=data)
     if not ok:
@@ -236,9 +238,7 @@ def init_device():
         cluster_info = get_cluster_info()
         if not cluster_info:
             return jsonify({'code': Config.fail_code, 'msg': 'Failed to get cluster info'})
-        k8s_token, ok = get_k8s_token()
-        if not ok:
-            return jsonify({'code': Config.fail_code, 'msg': 'Failed to get k8s token'})
+
         data = {
             'auth': device['auth'],
             'device_no': device['device_no'],
@@ -246,7 +246,6 @@ def init_device():
             'age': cluster_info['age'],
             'num': cluster_info['node_count'],
             'version': cluster_info['version'],
-            'k8s_token': k8s_token
         }
         response, ok = http_client.post('/genbu/edge/device/init_script', data=data)
         if not ok:
@@ -256,6 +255,14 @@ def init_device():
         if not ok:
             return jsonify({'code': Config.fail_code, 'msg': 'Failed to apply Kubernetes YAML'})
 
+        k8s_token, ok = get_k8s_token()
+        if not ok:
+            return jsonify({'code': Config.fail_code, 'msg': 'Failed to get k8s token'})
+        k8s_host, ok = get_k8s_svc()
+        if not ok:
+            return jsonify({'code': Config.fail_code, 'msg': 'Failed to get k8s host'})
+        data['k8s_url'] = k8s_host
+        data['k8s_token'] = k8s_token
         response, ok = http_client.post('/genbu/edge/device/init_success', data=data)
         if not ok:
             return jsonify({'code': Config.fail_code, 'msg': response})

@@ -1,4 +1,9 @@
+import hashlib
+import json
+import re
 import socket
+import subprocess
+
 import psutil
 import netifaces
 import os
@@ -191,5 +196,82 @@ def main():
             print(f"    {info}")
 
 
+def get_hardware_info():
+    system = platform.system().lower()
+    hardware_info = {}
+
+    if system == "windows":
+        try:
+            # 使用 wmic 获取硬件信息
+            def run_wmic(query):
+                result = subprocess.check_output(f'wmic {query} get /value', shell=True, text=True,
+                                                 stderr=subprocess.DEVNULL)
+                return re.search(r'=(.+)', result).group(1).strip() if re.search(r'=(.+)', result) else ""
+
+            hardware_info["cpu_id"] = run_wmic("cpu") or platform.processor()
+            hardware_info["bios_id"] = run_wmic("bios get serialnumber")
+            hardware_info["disk_id"] = run_wmic("diskdrive get serialnumber")
+            hardware_info["baseboard_id"] = run_wmic("baseboard get serialnumber")
+        except Exception:
+            # 回退到 platform 模块
+            hardware_info["cpu_id"] = platform.processor()
+            hardware_info["bios_id"] = ""
+            hardware_info["disk_id"] = ""
+            hardware_info["baseboard_id"] = ""
+
+    elif system == "linux":
+        try:
+            # CPU ID
+            with open("/proc/cpuinfo", "r") as f:
+                cpuinfo = f.read()
+                match = re.search(r"Serial\s*:\s*(\w+)", cpuinfo) or re.search(r"model name\s*:\s*([^\n]+)", cpuinfo)
+                hardware_info["cpu_id"] = match.group(1).strip() if match else platform.processor()
+
+            # BIOS Serial Number
+            bios_path = "/sys/class/dmi/id/bios_serial"
+            hardware_info["bios_id"] = open(bios_path, "r").read().strip() if os.path.exists(bios_path) else ""
+
+            # Disk Serial Number
+            disk_path = "/sys/block/sda/device/serial"  # 假设主磁盘为 sda
+            hardware_info["disk_id"] = open(disk_path, "r").read().strip() if os.path.exists(disk_path) else ""
+
+            # Baseboard Serial Number
+            board_path = "/sys/class/dmi/id/board_serial"
+            hardware_info["baseboard_id"] = open(board_path, "r").read().strip() if os.path.exists(board_path) else ""
+        except Exception:
+            # 回退到 platform 模块
+            hardware_info["cpu_id"] = platform.processor()
+            hardware_info["bios_id"] = ""
+            hardware_info["disk_id"] = ""
+            hardware_info["baseboard_id"] = ""
+
+    else:
+        # 其他系统，回退到 platform
+        hardware_info["cpu_id"] = platform.processor()
+        hardware_info["bios_id"] = ""
+        hardware_info["disk_id"] = ""
+        hardware_info["baseboard_id"] = ""
+
+    return hardware_info
+
+
+def get_machine_id():
+    # 获取硬件信息
+    info = get_hardware_info()
+
+    # 组合硬件信息，过滤空值
+    combined = "-".join([v for v in info.values() if v])
+    if not combined:
+        combined = platform.node()  # 回退到主机名
+
+    # 生成 SHA256 哈希
+    return hashlib.sha256(combined.encode()).hexdigest()
+
+
 if __name__ == "__main__":
-    main()
+    # main()
+    # print(get_machine_id())
+    result = get_network_interfaces_details()
+    print(result)
+    a = json.dumps(result)
+    print(json.loads(a))
