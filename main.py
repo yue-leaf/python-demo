@@ -7,7 +7,8 @@ from flask_wtf.csrf import CSRFError
 from config import Config
 from k8s_tool import KubernetesClient
 from proxy import http_client
-from tools import init_k3s, apply_kubernetes_yaml, get_cluster_info, get_k8s_token, get_k8s_svc
+from tools import init_k3s, apply_kubernetes_yaml, get_cluster_info, get_k8s_token, get_k8s_svc, create_configmap_tz, \
+    install_helm, install_prometheus, install_telegraf, get_resource_path
 from utils import get_os_info, get_hostname, get_network_interfaces_details, get_cpu_info, get_memory_info, \
     get_disk_info, get_cpu_mem_disk, get_machine_id
 from threading import local
@@ -254,7 +255,25 @@ def init_device():
         ok = apply_kubernetes_yaml(init_script)
         if not ok:
             return jsonify({'code': Config.fail_code, 'msg': 'Failed to apply Kubernetes YAML'})
-
+        fluent_bit_script = response.get('fluent_bit_script', None)
+        if fluent_bit_script:
+            ok = create_configmap_tz()
+            if not ok:
+                return jsonify({'code': Config.fail_code, 'msg': 'Failed to create configmap tz'})
+            ok = apply_kubernetes_yaml(fluent_bit_script)
+            if not ok:
+                return jsonify({'code': Config.fail_code, 'msg': 'Failed to apply fluent-bit YAML'})
+        telegraf_script = response.get('telegraf_script', None)
+        if telegraf_script:
+            ok = install_helm()
+            if not ok:
+                return jsonify({'code': Config.fail_code, 'msg': 'Failed to install helm'})
+            ok = install_prometheus()
+            if not ok:
+                return jsonify({'code': Config.fail_code, 'msg': 'Failed to install prometheus'})
+            ok = install_telegraf(telegraf_script)
+            if not ok:
+                return jsonify({'code': Config.fail_code,'msg': 'Failed to install telegraf'})
         k8s_token, ok = get_k8s_token()
         if not ok:
             return jsonify({'code': Config.fail_code, 'msg': 'Failed to get k8s token'})
@@ -287,6 +306,12 @@ def delete_device():
     except Exception as e:
         return jsonify({'code': Config.fail_code, 'msg': str(e)})
     return jsonify({'code': Config.success_code, 'msg': 'Device deleted successfully'})
+
+
+@app.route('/get_pkg', methods=['GET'])
+def get_pkg():
+    path = get_resource_path('pkg')
+    return jsonify({'code': 200, 'msg': path})
 
 
 if __name__ == '__main__':

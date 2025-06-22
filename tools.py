@@ -1,7 +1,9 @@
 import base64
 import json
 import os
+import platform
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -67,6 +69,21 @@ def start_k3s():
         return True
     else:
         print(f"Failed to start k3s: {stderr}")
+        return False
+
+
+def create_configmap_tz():
+    cmd = "kubectl create configmap tz --from-file=/usr/share/zoneinfo/Asia/Shanghai -n kube-system"
+    stdout, stderr, returncode = run_command(cmd)
+    if returncode == 0:
+        print("Kubernetes YAML applied successfully:")
+        print(stdout)
+        return True
+    else:
+        if "already exists" in stderr:
+            print("ConfigMap 'tz' already exists. Skipping creation.")
+            return True
+        print(f"Failed to apply Kubernetes YAML: {stderr}")
         return False
 
 
@@ -226,6 +243,116 @@ def get_k8s_svc():
         return None, False
 
 
+def get_resource_path(relative_path):
+    """ 获取打包后资源的绝对路径 """
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
+
+def install_helm():
+    try:
+        # 检查 helm 是否已安装
+        command = "helm version"
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        if result.returncode == 0:
+            print("Helm is already installed.")
+            return True
+        # 检测系统架构
+        arch = platform.machine().lower()
+        if arch in ["aarch64", "arm64"]:
+            arch_name = "arm64"
+        elif arch in ["x86_64", "amd64"]:
+            arch_name = "amd64"
+        else:
+            print(f"Unsupported architecture: {arch}")
+            return False
+        package = get_resource_path('pkg')
+        helm_binary = os.path.join(package, 'linux-' + arch_name, "helm")
+        if not helm_binary or not os.path.exists(helm_binary):
+            print(f"Helm package for {helm_binary} not found at {package}")
+            return False
+        shutil.copy(helm_binary, "/usr/local/bin/helm")
+        os.chmod("/usr/local/bin/helm", 0o755)
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        if result.returncode == 0:
+            print("Helm is already installed.")
+            return True
+        return False
+    except Exception as e:
+        print(f"Error checking Helm installation: {e}")
+        return False
+
+
+def install_prometheus():
+    try:
+        release_name = "kps"
+        create_ns_cmd = "kubectl create ns monitoring"
+        stdout, stderr, returncode = run_command(create_ns_cmd)
+        if returncode != 0 and "already exists" not in stderr:
+            print(f"Failed to create namespace: {stderr}")
+            return False
+        package = get_resource_path('pkg')
+        prometheus_helm_file = os.path.join(package, 'kube-prometheus-stack-70.4.0.tgz')
+        if not prometheus_helm_file or not os.path.exists(prometheus_helm_file):
+            print(f"Helm package for {prometheus_helm_file} not found at {package}")
+            return False
+        filter_cmd = f"helm list --namespace monitoring --filter {release_name} -o json"
+        stdout, stderr, returncode = run_command(filter_cmd, check=False)
+        if returncode != 0:
+            print(f"Error checking Helm release: {stderr}")
+            return False
+        releases = json.loads(stdout) if stdout else []
+        release_exists = any(release["name"] == release_name for release in releases)
+        if release_exists:
+            cmd = f"helm upgrade {release_name} {prometheus_helm_file} -n monitoring"
+        else:
+            cmd = f"helm install {release_name} {prometheus_helm_file} -n monitoring"
+        stdout, stderr, returncode = run_command(cmd)
+        if returncode != 0 and "already exists" not in stderr:
+            print(f"Failed to install prometheus: {stderr}")
+            return False
+        return True
+    except Exception as e:
+        print(f"Error installing prometheus: {e}")
+        return False
+
+
+def install_telegraf(config):
+    try:
+        release_name = "telegraf"
+        create_ns_cmd = "kubectl create ns monitoring"
+        stdout, stderr, returncode = run_command(create_ns_cmd)
+        if returncode != 0 and "already exists" not in stderr:
+            print(f"Failed to create namespace: {stderr}")
+            return False
+        package = get_resource_path('pkg')
+        telegraf_helm_file = os.path.join(package, 'telegraf-1.8.57.tgz')
+        if not telegraf_helm_file or not os.path.exists(telegraf_helm_file):
+            print(f"Helm package for {telegraf_helm_file} not found at {package}")
+            return False
+        filter_cmd = f"helm list --namespace monitoring --filter {release_name} -o json"
+        stdout, stderr, returncode = run_command(filter_cmd, check=False)
+        if returncode != 0:
+            print(f"Error checking Helm release: {stderr}")
+            return False
+        releases = json.loads(stdout) if stdout else []
+        release_exists = any(release["name"] == release_name for release in releases)
+        if release_exists:
+            cmd = f"helm upgrade {release_name} {telegraf_helm_file} -n monitoring -f -"
+        else:
+            cmd = f"helm install {release_name} {telegraf_helm_file} -n monitoring -f -"
+        stdout, stderr, returncode = run_command(cmd, input_text=config)
+        if returncode != 0 and "already exists" not in stderr:
+            print(f"Failed to install prometheus: {stderr}")
+            return False
+        return True
+
+    except Exception as e:
+        print(f"Error installing prometheus: {e}")
+        return False
+
+
 if __name__ == '__main__':
     # init_k3s()
     K8S_YAML = """
@@ -236,6 +363,28 @@ metadata:
 """
     # apply_kubernetes_yaml(K8S_YAML)
     # get_cluster_info()
-    token, ok = get_k8s_token()
-    print(token)
-    print(get_k8s_svc())
+    # token, ok = get_k8s_token()
+    # print(token)
+    # print(get_k8s_svc())
+    # create_configmap_tz()
+    # install_helm()
+    # install_prometheus()
+
+    config = """
+config:
+    inputs:
+    - prometheus:
+        urls:
+          - "http://kps-kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090/federate?match%5B%5D=%7B__name__%3D~%22.%2B%22%7D"   #抓取指标的URL，一般不需要更改
+        metric_version: 2
+        tags:
+          cluster: "k3s"   #集群名称 按照k3s-项目名称的格式
+    outputs:
+    - influxdb:
+        urls:
+          - "http://47.117.87.253:8428"   #远端的victoria-metrics地址
+        database: "telegraf"   #远端的victoria-metrics DB 部署时需指定 按照telegraf-项目名称的格式
+service:
+  enabled: false
+"""
+    install_telegraf(config)
