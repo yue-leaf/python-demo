@@ -8,9 +8,12 @@ import subprocess
 import sys
 import tempfile
 import time
+import traceback
 import uuid
 from datetime import datetime
 from pathlib import Path
+
+from log_tool import Logger
 
 
 def check_register():
@@ -30,6 +33,9 @@ def run_command(command, input_text=None, check=True):
         )
         return result.stdout, result.stderr, result.returncode
     except subprocess.CalledProcessError as e:
+        Logger.error(f"Error executing command: {command}")
+        Logger.error(f"Error message: {e.stderr}")
+        Logger.error(traceback.format_exc())
         return e.stdout, e.stderr, e.returncode
 
 
@@ -37,13 +43,13 @@ def check_k3s_installed():
     """Check if k3s is installed by checking systemctl status."""
     stdout, stderr, returncode = run_command("systemctl status k3s")
     if returncode == 0 or "k3s" in stdout or "k3s" in stderr:
-        print("k3s is installed.")
+        Logger.info("k3s is installed.")
         return True
     elif returncode == 4:  # systemctl status returns 4 if service not found
-        print("k3s is not installed.")
+        Logger.error("k3s is not installed.")
         return False
     else:
-        print(f"Error checking k3s installation: {stderr}")
+        Logger.error(f"Error checking k3s installation: {stderr}")
         return False
 
 
@@ -51,37 +57,37 @@ def check_k3s_running():
     """Check if k3s service is running."""
     stdout, stderr, returncode = run_command("systemctl is-active k3s")
     if stdout.strip() == "active":
-        print("k3s is running.")
+        Logger.info("k3s is running.")
         return True
     else:
-        print("k3s is not running.")
+        Logger.error("k3s is not running.")
         return False
 
 
 def start_k3s():
     """Start k3s service."""
-    print("Attempting to start k3s...")
+    Logger.info("Attempting to start k3s...")
     stdout, stderr, returncode = run_command("sudo systemctl start k3s")
     if returncode == 0:
-        print("k3s started successfully.")
+        Logger.info("k3s started successfully.")
         # Wait briefly to ensure service is up
         time.sleep(5)
         return True
     else:
-        print(f"Failed to start k3s: {stderr}")
+        Logger.error(f"Failed to start k3s: {stderr}")
         return False
 
 
 def restart_k3s():
-    print("Attempting to restart k3s...")
+    Logger.info("Attempting to restart k3s...")
     stdout, stderr, returncode = run_command("sudo systemctl restart k3s")
     if returncode == 0:
-        print("k3s restarted successfully.")
+        Logger.info("k3s restarted successfully.")
         # Wait briefly to ensure service is up
         time.sleep(5)
         return True
     else:
-        print(f"Failed to restart k3s: {stderr}")
+        Logger.error(f"Failed to restart k3s: {stderr}")
         return False
 
 
@@ -89,20 +95,20 @@ def create_configmap_tz():
     cmd = "kubectl create configmap tz --from-file=/usr/share/zoneinfo/Asia/Shanghai -n kube-system"
     stdout, stderr, returncode = run_command(cmd)
     if returncode == 0:
-        print("Kubernetes YAML applied successfully:")
-        print(stdout)
+        Logger.info("Kubernetes YAML applied successfully:")
+        Logger.info(stdout)
         return True
     else:
         if "already exists" in stderr:
-            print("ConfigMap 'tz' already exists. Skipping creation.")
+            Logger.info("ConfigMap 'tz' already exists. Skipping creation.")
             return True
-        print(f"Failed to apply Kubernetes YAML: {stderr}")
+        Logger.error(f"Failed to apply Kubernetes YAML: {stderr}")
         return False
 
 
 def apply_kubernetes_yaml(K8S_YAML):
     """Apply the provided Kubernetes YAML configuration using kubectl."""
-    print("Applying Kubernetes YAML configuration...")
+    Logger.info("Applying Kubernetes YAML configuration...")
     # Create a temporary file to store the YAML
     # with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as temp_file:
     #     temp_file.write(K8S_YAML)
@@ -123,42 +129,42 @@ def apply_kubernetes_yaml(K8S_YAML):
 
     stdout, stderr, returncode = run_command(f"kubectl apply -f -", input_text=K8S_YAML)
     if returncode == 0:
-        print("Kubernetes YAML applied successfully:")
-        print(stdout)
+        Logger.info("Kubernetes YAML applied successfully:")
+        Logger.info(stdout)
         return True
     else:
-        print(f"Failed to apply Kubernetes YAML: {stderr}")
+        Logger.error(f"Failed to apply Kubernetes YAML: {stderr}")
         return False
 
 
 def check_kubectl():
     """Check kubectl functionality by listing nodes."""
-    print("Checking kubectl functionality...")
+    Logger.info("Checking kubectl functionality...")
     stdout, stderr, returncode = run_command("kubectl get nodes")
     if returncode == 0:
-        print("kubectl check successful. Node output:")
-        print(stdout)
+        Logger.info("kubectl check successful. Node output:")
+        Logger.info(stdout)
         return True
     else:
-        print(f"kubectl check failed: {stderr}")
+        Logger.error(f"kubectl check failed: {stderr}")
         return False
 
 
 def install_k3s():
     """Install k3s using the provided curl command."""
-    print("Installing k3s...")
+    Logger.info("Installing k3s...")
     install_cmd = (
         "curl -sfL https://rancher-mirror.rancher.cn/k3s/k3s-install.sh | "
         "INSTALL_K3S_MIRROR=cn K3S_TOKEN=SECRET sh -s -"
     )
     stdout, stderr, returncode = run_command(install_cmd)
     if returncode == 0:
-        print("k3s installed successfully.")
+        Logger.info("k3s installed successfully.")
         # Wait briefly to ensure service is initialized
         time.sleep(10)
         return True
     else:
-        print(f"Failed to install k3s: {stderr}")
+        Logger.error(f"Failed to install k3s: {stderr}")
         return False
 
 
@@ -177,20 +183,20 @@ EOF
         """
         stdout, stderr, returncode = run_command(command)
         if returncode != 0:
-            print(f"Failed to modify k3s registries: {stderr}")
+            Logger.error(f"Failed to modify k3s registries: {stderr}")
             return False
         return True
     except Exception as e:
-        print(f"Error modifying k3s registries: {e}")
+        Logger.error(f"Error modifying k3s registries: {e}")
         return False
 
 
 def init_k3s():
     # Check if k3s is installed
     if not check_k3s_installed():
-        print("Please install k3s before proceeding.")
+        Logger.info("Please install k3s before proceeding.")
         if not install_k3s():
-            print("Could not install k3s. Exiting.")
+            Logger.error("Could not install k3s. Exiting.")
             return "Failed to install k3s", False
 
     if not modify_k3s_registries():
@@ -200,21 +206,21 @@ def init_k3s():
     if not check_k3s_running():
         # Try to start k3s
         if not start_k3s():
-            print("Could not start k3s. Exiting.")
+            Logger.error("Could not start k3s. Exiting.")
             return "Failed to start k3s", False
     else:
         if not restart_k3s():
-            print("Could not restart k3s. Exiting.")
+            Logger.error("Could not restart k3s. Exiting.")
             return "Failed to restart k3s", False
 
     # Verify k3s is now running
     if check_k3s_running():
         # Check kubectl
         if not check_kubectl():
-            print("kubectl check failed. Exiting.")
+            Logger.error("kubectl check failed. Exiting.")
             return "kubectl check failed", False
     else:
-        print("k3s is still not running. Exiting.")
+        Logger.error("k3s is still not running. Exiting.")
         return False, "k3s is not running"
     return "k3s is running and kubectl is functional", True
 
@@ -246,7 +252,7 @@ def get_cluster_info():
             'version': version
         }
     except Exception as e:
-        print(f"Error getting cluster info: {e}")
+        Logger.error(f"Error getting cluster info: {e}")
         return None
 
 
@@ -256,16 +262,16 @@ def get_k8s_token():
         command = """kubectl get secret -n snb-system snb-admin-token -o jsonpath='{.data.token}'"""
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
         if result.returncode != 0:
-            print(f"Error getting token: {result.stderr}")
+            Logger.error(f"Error getting token: {result.stderr}")
             return result.stderr, False
         token = result.stdout.strip()
         if not token:
-            print("Token not found.")
+            Logger.error("Token not found.")
             return None, False
         return base64.b64decode(token.encode('utf-8')).decode('utf-8'), True
 
     except Exception as e:
-        print(f"Error executing kubectl command: {e}")
+        Logger.error(f"Error executing kubectl command: {e}")
         return None, False
 
 
@@ -274,15 +280,15 @@ def get_k8s_svc():
         command = "kubectl get svc kubernetes -n default -o jsonpath='{.spec.clusterIP}'"
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
         if result.returncode != 0:
-            print(f"Error getting ip: {result.stderr}")
+            Logger.info(f"Error getting ip: {result.stderr}")
             return result.stderr, False
         ip = result.stdout.strip()
         if not ip:
-            print("Cluster ip not found.")
+            Logger.error("Cluster ip not found.")
             return None, False
         return f'https://{ip}:443', True
     except Exception as e:
-        print(f"Error executing kubectl command: {e}")
+        Logger.error(f"Error executing kubectl command: {e}")
         return None, False
 
 
@@ -299,7 +305,7 @@ def install_helm():
         command = "helm version"
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
         if result.returncode == 0:
-            print("Helm is already installed.")
+            Logger.info("Helm is already installed.")
             return True
         # 检测系统架构
         arch = platform.machine().lower()
@@ -308,22 +314,22 @@ def install_helm():
         elif arch in ["x86_64", "amd64"]:
             arch_name = "amd64"
         else:
-            print(f"Unsupported architecture: {arch}")
+            Logger.error(f"Unsupported architecture: {arch}")
             return False
         package = get_resource_path('pkg')
         helm_binary = os.path.join(package, 'linux-' + arch_name, "helm")
         if not helm_binary or not os.path.exists(helm_binary):
-            print(f"Helm package for {helm_binary} not found at {package}")
+            Logger.error(f"Helm package for {helm_binary} not found at {package}")
             return False
         shutil.copy(helm_binary, "/usr/local/bin/helm")
         os.chmod("/usr/local/bin/helm", 0o755)
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
         if result.returncode == 0:
-            print("Helm is already installed.")
+            Logger.info("Helm is already installed.")
             return True
         return False
     except Exception as e:
-        print(f"Error checking Helm installation: {e}")
+        Logger.error(f"Error checking Helm installation: {e}")
         return False
 
 
@@ -333,17 +339,17 @@ def install_prometheus():
         create_ns_cmd = "kubectl create ns monitoring"
         stdout, stderr, returncode = run_command(create_ns_cmd)
         if returncode != 0 and "already exists" not in stderr:
-            print(f"Failed to create namespace: {stderr}")
+            Logger.info(f"Failed to create namespace: {stderr}")
             return False
         package = get_resource_path('pkg')
         prometheus_helm_file = os.path.join(package, 'kube-prometheus-stack-70.4.0.tgz')
         if not prometheus_helm_file or not os.path.exists(prometheus_helm_file):
-            print(f"Helm package for {prometheus_helm_file} not found at {package}")
+            Logger.info(f"Helm package for {prometheus_helm_file} not found at {package}")
             return False
         filter_cmd = f"helm list --namespace monitoring --filter {release_name} -o json"
         stdout, stderr, returncode = run_command(filter_cmd, check=False)
         if returncode != 0:
-            print(f"Error checking Helm release: {stderr}")
+            Logger.info(f"Error checking Helm release: {stderr}")
             return False
         releases = json.loads(stdout) if stdout else []
         release_exists = any(release["name"] == release_name for release in releases)
@@ -353,11 +359,11 @@ def install_prometheus():
             cmd = f"helm install {release_name} {prometheus_helm_file} -n monitoring"
         stdout, stderr, returncode = run_command(cmd)
         if returncode != 0 and "already exists" not in stderr:
-            print(f"Failed to install prometheus: {stderr}")
+            Logger.info(f"Failed to install prometheus: {stderr}")
             return False
         return True
     except Exception as e:
-        print(f"Error installing prometheus: {e}")
+        Logger.info(f"Error installing prometheus: {e}")
         return False
 
 
@@ -367,17 +373,17 @@ def install_telegraf(config):
         create_ns_cmd = "kubectl create ns monitoring"
         stdout, stderr, returncode = run_command(create_ns_cmd)
         if returncode != 0 and "already exists" not in stderr:
-            print(f"Failed to create namespace: {stderr}")
+            Logger.error(f"Failed to create namespace: {stderr}")
             return False
         package = get_resource_path('pkg')
         telegraf_helm_file = os.path.join(package, 'telegraf-1.8.57.tgz')
         if not telegraf_helm_file or not os.path.exists(telegraf_helm_file):
-            print(f"Helm package for {telegraf_helm_file} not found at {package}")
+            Logger.error(f"Helm package for {telegraf_helm_file} not found at {package}")
             return False
         filter_cmd = f"helm list --namespace monitoring --filter {release_name} -o json"
         stdout, stderr, returncode = run_command(filter_cmd, check=False)
         if returncode != 0:
-            print(f"Error checking Helm release: {stderr}")
+            Logger.error(f"Error checking Helm release: {stderr}")
             return False
         releases = json.loads(stdout) if stdout else []
         release_exists = any(release["name"] == release_name for release in releases)
@@ -387,12 +393,13 @@ def install_telegraf(config):
             cmd = f"helm install {release_name} {telegraf_helm_file} -n monitoring -f -"
         stdout, stderr, returncode = run_command(cmd, input_text=config)
         if returncode != 0 and "already exists" not in stderr:
-            print(f"Failed to install prometheus: {stderr}")
+            Logger.error(f"Failed to install prometheus: {stderr}")
             return False
         return True
 
     except Exception as e:
-        print(f"Error installing prometheus: {e}")
+        Logger.error(traceback.format_exc())
+        Logger.error(f"Error installing prometheus: {e}")
         return False
 
 

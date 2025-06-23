@@ -1,4 +1,6 @@
 import sqlite3
+import traceback
+
 from flask import session, jsonify
 from flask import Flask, render_template, request, redirect, url_for, make_response
 from flask_wtf import CSRFProtect
@@ -6,6 +8,7 @@ from flask_wtf.csrf import CSRFError
 
 from config import Config
 from k8s_tool import KubernetesClient
+from log_tool import Logger
 from proxy import http_client
 from tools import init_k3s, apply_kubernetes_yaml, get_cluster_info, get_k8s_token, get_k8s_svc, create_configmap_tz, \
     install_helm, install_prometheus, install_telegraf, get_resource_path
@@ -293,6 +296,7 @@ def init_device():
             close_db_connection()
         return jsonify({'code': Config.success_code, 'msg': 'Device initialized successfully'})
     except Exception as e:
+        Logger.error('Failed to init_device: %s', traceback.format_exc())
         return jsonify({'code': Config.fail_code, 'msg': str(e)})
 
 
@@ -304,6 +308,7 @@ def delete_device():
         http_client.delete('/genbu/edge/device/delete', data={'device_no': device_no})
         del_device(device_no)
     except Exception as e:
+        Logger.error('Failed to delete device: %s', traceback.format_exc())
         return jsonify({'code': Config.fail_code, 'msg': str(e)})
     return jsonify({'code': Config.success_code, 'msg': 'Device deleted successfully'})
 
