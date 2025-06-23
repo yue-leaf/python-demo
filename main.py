@@ -273,7 +273,7 @@ def init_device():
                 return jsonify({'code': Config.fail_code, 'msg': 'Failed to install prometheus'})
             ok = install_telegraf(telegraf_script)
             if not ok:
-                return jsonify({'code': Config.fail_code,'msg': 'Failed to install telegraf'})
+                return jsonify({'code': Config.fail_code, 'msg': 'Failed to install telegraf'})
         k8s_token, ok = get_k8s_token()
         if not ok:
             return jsonify({'code': Config.fail_code, 'msg': 'Failed to get k8s token'})
