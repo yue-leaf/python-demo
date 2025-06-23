@@ -4,6 +4,7 @@ import traceback
 import requests
 
 from config import Config
+from log_tool import Logger
 
 
 class HttpClient:
@@ -13,6 +14,7 @@ class HttpClient:
             self.host = host
         else:
             self.host = Config.edge_server_host
+        Logger.info(f'edge server host:{self.host}')
         self.timeout = Config.timeout
         self.success_code = 20000
 
