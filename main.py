@@ -11,7 +11,7 @@ from k8s_tool import KubernetesClient
 from log_tool import Logger
 from proxy import http_client
 from tools import init_k3s, apply_kubernetes_yaml, get_cluster_info, get_k8s_token, get_k8s_svc, create_configmap_tz, \
-    install_helm, install_prometheus, install_telegraf, get_resource_path
+    install_helm, install_prometheus, install_telegraf, get_resource_path, cp_k3s_config
 from utils import get_os_info, get_hostname, get_network_interfaces_details, get_cpu_info, get_memory_info, \
     get_disk_info, get_cpu_mem_disk, get_machine_id
 from threading import local
@@ -271,6 +271,9 @@ def init_device():
             ok = install_helm()
             if not ok:
                 return jsonify({'code': Config.fail_code, 'msg': 'Failed to install helm'})
+            ok = cp_k3s_config()
+            if not ok:
+                return jsonify({'code': Config.fail_code,'msg': 'Failed to copy k3s config'})
             ok = install_prometheus()
             if not ok:
                 return jsonify({'code': Config.fail_code, 'msg': 'Failed to install prometheus'})

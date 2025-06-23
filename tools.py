@@ -299,6 +299,23 @@ def get_resource_path(relative_path):
     return os.path.join(os.path.abspath("."), relative_path)
 
 
+def cp_k3s_config():
+    if not os.path.exists("/root/.kube"):
+        # Create the directory if it doesn't exist
+        cmd = "mkdir -p /root/.kube"
+        stdout, stderr, returncode = run_command(cmd)
+        if returncode != 0:
+            Logger.error(f"Failed to create .kube directory: {stderr}")
+            return False
+    cmd = "cp  /etc/rancher/k3s/k3s.yaml /root/.kube/config"
+    stdout, stderr, returncode = run_command(cmd)
+    if returncode != 0:
+        Logger.error(f"Failed to copy k3s config: {stderr}")
+        return False
+    restart_k3s()
+    return True
+
+
 def install_helm():
     try:
         # 检查 helm 是否已安装

@@ -3,6 +3,8 @@ Description=Snowballtech Node Agent Service
 After=network.target
 
 [Service]
+Environment="HOME=/root"
+Environment="KUBECONFIG=/root/.kube/config"
 WorkingDirectory=/usr/local/bin/
 ExecStart=/usr/local/bin/nodeAgent 9009
 Restart=always
