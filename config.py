@@ -8,7 +8,7 @@ class Config:
     password = 'admin'
 
     edge_server_host = 'http://10.10.0.234:6006'
-    timeout = 150
+    timeout = 5
     success_code = '0000'
     fail_code = '0001'
 
