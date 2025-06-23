@@ -72,6 +72,19 @@ def start_k3s():
         return False
 
 
+def restart_k3s():
+    print("Attempting to restart k3s...")
+    stdout, stderr, returncode = run_command("sudo systemctl restart k3s")
+    if returncode == 0:
+        print("k3s restarted successfully.")
+        # Wait briefly to ensure service is up
+        time.sleep(5)
+        return True
+    else:
+        print(f"Failed to restart k3s: {stderr}")
+        return False
+
+
 def create_configmap_tz():
     cmd = "kubectl create configmap tz --from-file=/usr/share/zoneinfo/Asia/Shanghai -n kube-system"
     stdout, stderr, returncode = run_command(cmd)
@@ -149,6 +162,29 @@ def install_k3s():
         return False
 
 
+def modify_k3s_registries():
+    try:
+        os.makedirs("/etc/rancher/k3s/", exist_ok=True)
+        command = """cat << EOF > /etc/rancher/k3s/registries.yaml
+mirrors:
+  docker.io:
+    endpoint:
+      - "https://docker.snowballtech.com/"
+  registry.k8s.io:
+    endpoint:
+      - "https://k8s.snowballtech.com/"
+EOF
+        """
+        stdout, stderr, returncode = run_command(command)
+        if returncode != 0:
+            print(f"Failed to modify k3s registries: {stderr}")
+            return False
+        return True
+    except Exception as e:
+        print(f"Error modifying k3s registries: {e}")
+        return False
+
+
 def init_k3s():
     # Check if k3s is installed
     if not check_k3s_installed():
@@ -157,12 +193,19 @@ def init_k3s():
             print("Could not install k3s. Exiting.")
             return "Failed to install k3s", False
 
+    if not modify_k3s_registries():
+        return "Failed to modify k3s registries", False
+
     # Check if k3s is running
     if not check_k3s_running():
         # Try to start k3s
         if not start_k3s():
             print("Could not start k3s. Exiting.")
             return "Failed to start k3s", False
+    else:
+        if not restart_k3s():
+            print("Could not restart k3s. Exiting.")
+            return "Failed to restart k3s", False
 
     # Verify k3s is now running
     if check_k3s_running():
@@ -387,4 +430,6 @@ config:
 service:
   enabled: false
 """
-    install_telegraf(config)
+    # install_telegraf(config)
+
+    modify_k3s_registries()
