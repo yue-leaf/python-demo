@@ -1,4 +1,5 @@
 import json
+import os
 import traceback
 import requests
 
@@ -7,7 +8,11 @@ from config import Config
 
 class HttpClient:
     def __init__(self):
-        self.host = Config.edge_server_host
+        host = os.environ.get('edgeServerHost')
+        if host:
+            self.host = host
+        else:
+            self.host = Config.edge_server_host
         self.timeout = Config.timeout
         self.success_code = 20000
 
