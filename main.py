@@ -273,8 +273,9 @@ def init_device():
                 return jsonify({'code': Config.fail_code, 'msg': 'Failed to install helm'})
             ok = cp_k3s_config()
             if not ok:
-                return jsonify({'code': Config.fail_code,'msg': 'Failed to copy k3s config'})
-            ok = install_prometheus()
+                return jsonify({'code': Config.fail_code, 'msg': 'Failed to copy k3s config'})
+            prometheus_script = response.get('prometheus_script', None)
+            ok = install_prometheus(prometheus_script)
             if not ok:
                 return jsonify({'code': Config.fail_code, 'msg': 'Failed to install prometheus'})
             ok = install_telegraf(telegraf_script)

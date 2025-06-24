@@ -350,7 +350,7 @@ def install_helm():
         return False
 
 
-def install_prometheus():
+def install_prometheus(prometheus_script):
     try:
         release_name = "kps"
         create_ns_cmd = "kubectl create ns monitoring"
@@ -374,7 +374,11 @@ def install_prometheus():
             cmd = f"helm upgrade {release_name} {prometheus_helm_file} -n monitoring"
         else:
             cmd = f"helm install {release_name} {prometheus_helm_file} -n monitoring"
-        stdout, stderr, returncode = run_command(cmd)
+        if prometheus_script:
+            cmd += " -f -"
+            stdout, stderr, returncode = run_command(cmd, input_text=prometheus_script)
+        else:
+            stdout, stderr, returncode = run_command(cmd)
         if returncode != 0 and "already exists" not in stderr:
             Logger.info(f"Failed to install prometheus: {stderr}")
             return False
