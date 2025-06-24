@@ -19,6 +19,16 @@ from log_tool import Logger
 def check_register():
     return True
 
+def get_namespace(ns):
+    try:
+        command = "kubectl get namespaces {}".format(ns)
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        if result.returncode != 0:
+            return False
+        return True
+    except Exception as e:
+        Logger.error(f"Error querying namespaces: {e}")
+        return False
 
 def run_command(command, input_text=None, check=True):
     """Execute a shell command and return its output."""
@@ -353,11 +363,13 @@ def install_helm():
 def install_prometheus(prometheus_script):
     try:
         release_name = "kps"
-        create_ns_cmd = "kubectl create ns monitoring"
-        stdout, stderr, returncode = run_command(create_ns_cmd)
-        if returncode != 0 and "already exists" not in stderr:
-            Logger.info(f"Failed to create namespace: {stderr}")
-            return False
+        namespace = "monitoring"
+        if not get_namespace(namespace):
+            create_ns_cmd = "kubectl create ns monitoring"
+            stdout, stderr, returncode = run_command(create_ns_cmd)
+            if returncode != 0 and "already exists" not in stderr:
+                Logger.info(f"Failed to create namespace: {stderr}")
+                return False
         package = get_resource_path('pkg')
         prometheus_helm_file = os.path.join(package, 'kube-prometheus-stack-70.4.0.tgz')
         if not prometheus_helm_file or not os.path.exists(prometheus_helm_file):
@@ -391,17 +403,19 @@ def install_prometheus(prometheus_script):
 def install_telegraf(config):
     try:
         release_name = "telegraf"
-        create_ns_cmd = "kubectl create ns monitoring"
-        stdout, stderr, returncode = run_command(create_ns_cmd)
-        if returncode != 0 and "already exists" not in stderr:
-            Logger.error(f"Failed to create namespace: {stderr}")
-            return False
+        namespace = "monitoring"
+        if not get_namespace(namespace):
+            create_ns_cmd = "kubectl create ns {}".format(namespace)
+            stdout, stderr, returncode = run_command(create_ns_cmd)
+            if returncode != 0 and "already exists" not in stderr:
+                Logger.error(f"Failed to create namespace: {stderr}")
+                return False
         package = get_resource_path('pkg')
         telegraf_helm_file = os.path.join(package, 'telegraf-1.8.57.tgz')
         if not telegraf_helm_file or not os.path.exists(telegraf_helm_file):
             Logger.error(f"Helm package for {telegraf_helm_file} not found at {package}")
             return False
-        filter_cmd = f"helm list --namespace monitoring --filter {release_name} -o json"
+        filter_cmd = f"helm list --namespace {namespace} --filter {release_name} -o json"
         stdout, stderr, returncode = run_command(filter_cmd, check=False)
         if returncode != 0:
             Logger.error(f"Error checking Helm release: {stderr}")
@@ -409,9 +423,9 @@ def install_telegraf(config):
         releases = json.loads(stdout) if stdout else []
         release_exists = any(release["name"] == release_name for release in releases)
         if release_exists:
-            cmd = f"helm upgrade {release_name} {telegraf_helm_file} -n monitoring -f -"
+            cmd = f"helm upgrade {release_name} {telegraf_helm_file} -n {namespace} -f -"
         else:
-            cmd = f"helm install {release_name} {telegraf_helm_file} -n monitoring -f -"
+            cmd = f"helm install {release_name} {telegraf_helm_file} -n {namespace} -f -"
         stdout, stderr, returncode = run_command(cmd, input_text=config)
         if returncode != 0 and "already exists" not in stderr:
             Logger.error(f"Failed to install prometheus: {stderr}")
@@ -460,4 +474,5 @@ service:
 """
     # install_telegraf(config)
 
-    modify_k3s_registries()
+    # modify_k3s_registries()
+    get_namespace('')
