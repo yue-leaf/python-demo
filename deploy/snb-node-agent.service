@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Environment="HOME=/root"
-Environment="KUBECONFIG=/root/.kube/config"
+Environment="KUBECONFIG=/etc/rancher/k3s/k3s.yaml"
 WorkingDirectory=/usr/local/bin/
 ExecStart=/usr/local/bin/nodeAgent 9009
 Restart=always

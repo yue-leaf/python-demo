@@ -236,6 +236,9 @@ def init_device():
         msg, ok = init_k3s()
         if not ok:
             return jsonify({'code': Config.fail_code, 'msg': msg})
+        ok = cp_k3s_config()
+        if not ok:
+            return jsonify({'code': Config.fail_code, 'msg': 'Failed to copy k3s config'})
         device = get_cache_device()
         if not device:
             return jsonify({'code': Config.fail_code, 'msg': 'Device not registered'})
@@ -271,9 +274,6 @@ def init_device():
             ok = install_helm()
             if not ok:
                 return jsonify({'code': Config.fail_code, 'msg': 'Failed to install helm'})
-            ok = cp_k3s_config()
-            if not ok:
-                return jsonify({'code': Config.fail_code, 'msg': 'Failed to copy k3s config'})
             prometheus_script = response.get('prometheus_script', None)
             ok = install_prometheus(prometheus_script)
             if not ok:
