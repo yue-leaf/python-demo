@@ -102,6 +102,11 @@ def restart_k3s():
 
 
 def create_configmap_tz():
+    query_cmd = "kubectl get configmap tz -n kube-system"
+    stdout, stderr, returncode = run_command(query_cmd)
+    if returncode == 0:
+        Logger.info("ConfigMap 'tz' already exists. Skipping creation.")
+        return True
     cmd = "kubectl create configmap tz --from-file=/usr/share/zoneinfo/Asia/Shanghai -n kube-system"
     stdout, stderr, returncode = run_command(cmd)
     if returncode == 0:
@@ -365,11 +370,14 @@ def install_prometheus(prometheus_script):
         release_name = "kps"
         namespace = "monitoring"
         if not get_namespace(namespace):
+            Logger.info(f"Namespace {namespace} does not exist. Creating...")
             create_ns_cmd = "kubectl create ns monitoring"
             stdout, stderr, returncode = run_command(create_ns_cmd)
             if returncode != 0 and "already exists" not in stderr:
                 Logger.info(f"Failed to create namespace: {stderr}")
                 return False
+        else:
+            Logger.info(f"Namespace {namespace} exist.")
         package = get_resource_path('pkg')
         prometheus_helm_file = os.path.join(package, 'kube-prometheus-stack-70.4.0.tgz')
         if not prometheus_helm_file or not os.path.exists(prometheus_helm_file):
@@ -475,4 +483,5 @@ service:
     # install_telegraf(config)
 
     # modify_k3s_registries()
-    get_namespace('')
+    # get_namespace('monitoring')
+    install_prometheus(None)
